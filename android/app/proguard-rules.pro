@@ -47,6 +47,10 @@
     public static int e(...);
 }
 
+# Google Play Core - ignore missing classes for split APKs
+-dontwarn com.google.android.play.core.**
+-keep class com.google.android.play.core.** { *; }
+
 # Keep crash reporting
 -keepattributes SourceFile,LineNumberTable
 -keep public class * extends java.lang.Exception 

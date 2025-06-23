@@ -58,13 +58,13 @@ android {
             // Use signing config
             signingConfig = signingConfigs.getByName("release")
             
-            // Release optimizations
-            isMinifyEnabled = true
-            isShrinkResources = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
+            // Disable minification to avoid missing class issues
+            isMinifyEnabled = false
+            isShrinkResources = false
+            // proguardFiles(
+            //     getDefaultProguardFile("proguard-android-optimize.txt"),
+            //     "proguard-rules.pro"
+            // )
             
             // Android 15 compatibility flags
             manifestPlaceholders["enableBackupEncryption"] = "true"
@@ -90,15 +90,15 @@ android {
         warningsAsErrors = false
     }
 
-    // Split APKs by ABI for smaller downloads
-    splits {
-        abi {
-            isEnable = true
-            reset()
-            include("arm64-v8a", "armeabi-v7a", "x86_64")
-            isUniversalApk = true
-        }
-    }
+    // Split APKs disabled to avoid Google Play Core dependency issues
+    // splits {
+    //     abi {
+    //         isEnable = true
+    //         reset()
+    //         include("arm64-v8a", "armeabi-v7a", "x86_64")
+    //         isUniversalApk = true
+    //     }
+    // }
 }
 
 dependencies {
