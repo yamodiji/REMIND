@@ -5,7 +5,7 @@ import '../services/notification_service.dart';
 
 class ReminderProvider extends ChangeNotifier {
   Box<Reminder>? _reminderBox;
-  List<Reminder> _fallbackReminders = [];
+  final List<Reminder> _fallbackReminders = <Reminder>[];
   bool _useHive = false;
   
   ReminderProvider() {
