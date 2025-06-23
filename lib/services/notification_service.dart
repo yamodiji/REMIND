@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:timezone/data/latest.dart' as tz;
 import '../models/reminder.dart';
+
+// Use TZDateTime alias
+typedef TZDateTime = tz.TZDateTime;
+final tz.Location local = tz.getLocation('UTC');
 
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _notifications = 
@@ -148,17 +154,4 @@ class NotificationService {
   }
 }
 
-// Import timezone for local notifications
-import 'package:timezone/timezone.dart' as tz;
-import 'package:timezone/data/latest.dart' as tz;
-
-// Initialize timezone
-class TimeZoneHelper {
-  static void initialize() {
-    tz.initializeTimeZones();
-  }
-}
-
-// Use TZDateTime alias
-typedef TZDateTime = tz.TZDateTime;
-final tz.Location local = tz.getLocation('UTC'); 
+ 
