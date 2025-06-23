@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.yamodiji.reminder_app"
-    compileSdk = 34
+    compileSdk = 35
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -21,7 +21,7 @@ android {
     defaultConfig {
         applicationId = "com.yamodiji.reminder_app"
         minSdk = 23  // Required for modern plugins
-        targetSdk = 34
+        targetSdk = 35
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }

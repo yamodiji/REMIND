@@ -222,7 +222,7 @@ class _ReminderCallScreenState extends State<ReminderCallScreen>
                 fontWeight: FontWeight.w500,
               ),
             ),
-          ).animate().fadeIn(delay: 800.ms).scale(begin: 0.8),
+          ).animate().fadeIn(delay: 800.ms).scale(begin: const Offset(0.8, 0.8)),
           
           // Contact Info (if available)
           if (_currentReminder!.contactName != null) ...[

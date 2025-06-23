@@ -1,4 +1,4 @@
-name: Build Flutter APK
+name: Build and Release Flutter APK
 
 on:
   push:
@@ -92,35 +92,52 @@ jobs:
         path: build/app/outputs/flutter-apk/app-release.apk
 
     - name: Rename APK for release
-      run: cp build/app/outputs/flutter-apk/app-release.apk reminder-app-release.apk
+      run: cp build/app/outputs/flutter-apk/app-release.apk reminder-app-v1.0.${{ github.run_number }}.apk
 
     - name: Create Release
       if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
       uses: softprops/action-gh-release@v2
       with:
         tag_name: v1.0.${{ github.run_number }}
-        name: Reminder App v1.0.${{ github.run_number }}
+        name: "📱 Reminder App v1.0.${{ github.run_number }}"
         body: |
-          🔔 **Reminder App - Call Screen Style Reminders**
-          📱 Download the APK below and install on your Android device
+          # 🔔 Reminder App - Call Screen Style Reminders
           
-          **Features:**
-          ✅ Call-screen style reminder notifications
-          ✅ Local storage with Hive
-          ✅ Repeat reminders (daily, weekly, monthly, yearly)
-          ✅ Important reminder marking
-          ✅ Snooze functionality
-          ✅ Modern Material 3 UI
-          ✅ Permission handling for Android 13+
+          **📱 Download APK**: `reminder-app-v1.0.${{ github.run_number }}.apk`
           
-          **Installation:**
-          1. Download `reminder-app-release.apk`
-          2. Enable "Install from unknown sources" in Android settings
-          3. Install the APK
-          4. Grant notification permissions when prompted
+          ## 🚀 Features
+          - ✅ **Call-screen style reminder notifications** - Immersive full-screen reminders
+          - ✅ **Local storage with Hive** - Fast, reliable data persistence
+          - ✅ **Repeat reminders** - Daily, weekly, monthly, yearly options
+          - ✅ **Important reminder marking** - Priority levels for critical reminders
+          - ✅ **Snooze functionality** - 5min, 10min, 30min, 1hr snooze options
+          - ✅ **Modern Material 3 UI** - Beautiful, intuitive interface
+          - ✅ **Permission handling** - Proper Android 13+ permission management
+          - ✅ **Offline-first design** - Works without internet connection
           
-          ⚠️ **Note:** Enable "Install from unknown sources" in Android settings before installation
-        files: reminder-app-release.apk
+          ## 📲 Installation Instructions
+          1. **Download** the APK file below
+          2. **Enable** "Install from unknown sources" in Android Settings → Security
+          3. **Install** the APK by tapping on it
+          4. **Grant** notification permissions when prompted
+          5. **Enjoy** your new reminder app!
+          
+          ## 🔧 Technical Details
+          - **Minimum Android**: Android 5.0 (API 23)
+          - **Target Android**: Android 15 (API 35)
+          - **Architecture**: MVVM with Provider
+          - **Storage**: Hive local database
+          - **Notifications**: Flutter Local Notifications
+          
+          ## 🆕 What's New in v1.0.${{ github.run_number }}
+          - Fixed Android SDK compatibility issues
+          - Improved animation performance
+          - Enhanced build process for better reliability
+          
+          ---
+          
+          ⚠️ **Important**: This is an unsigned APK. Your device may show a warning during installation - this is normal for apps not from the Play Store.
+        files: reminder-app-v1.0.${{ github.run_number }}.apk
         draft: false
         prerelease: false
         token: ${{ secrets.GITHUB_TOKEN }} 
