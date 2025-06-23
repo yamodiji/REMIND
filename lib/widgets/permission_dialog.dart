@@ -180,18 +180,22 @@ class PermissionDialog extends StatelessWidget {
     await provider.requestAllPermissions();
     
     if (provider.allPermissionsGranted) {
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'All permissions granted! You can now receive reminders.',
-            style: GoogleFonts.poppins(),
+      if (context.mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'All permissions granted! You can now receive reminders.',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: Colors.green,
           ),
-          backgroundColor: Colors.green,
-        ),
-      );
+        );
+      }
     } else {
-      _showPermissionDeniedDialog(context, provider);
+      if (context.mounted) {
+        _showPermissionDeniedDialog(context, provider);
+      }
     }
   }
 
@@ -349,39 +353,43 @@ Future<bool> showExactAlarmPermissionDialog(BuildContext context) async {
   return false;
 }
 
-/// Request all necessary permissions with proper Android 15 flow
-Future<bool> requestAllPermissions(BuildContext context) async {
-  try {
-    // Check if notification permission is already granted
-    final notificationStatus = await Permission.notification.status;
-    
-    if (notificationStatus.isGranted) {
-      return true;
-    }
-    
-    // Show explanation dialog first (Android 15 best practice)
-    final shouldRequestNotification = await showNotificationPermissionDialog(context);
-    
-    if (!shouldRequestNotification) {
+class PermissionDialog {
+  /// Request all necessary permissions with proper Android 15 flow
+  static Future<bool> requestAllPermissions(BuildContext context) async {
+    try {
+      // Check if notification permission is already granted
+      final notificationStatus = await Permission.notification.status;
+      
+      if (notificationStatus.isGranted) {
+        return true;
+      }
+      
+      // Show explanation dialog first (Android 15 best practice)
+      final shouldRequestNotification = await showNotificationPermissionDialog(context);
+      
+      if (!shouldRequestNotification) {
+        return false;
+      }
+      
+      // Request exact alarm permission for Android 15
+      if (context.mounted) {
+        await showExactAlarmPermissionDialog(context);
+      }
+      
+      // Check final status
+      final finalStatus = await Permission.notification.status;
+      
+      if (finalStatus.isPermanentlyDenied && context.mounted) {
+        await showPermissionDeniedDialog(context);
+        return false;
+      }
+      
+      return finalStatus.isGranted;
+      
+    } catch (e) {
+      debugPrint('Permission request error: $e');
       return false;
     }
-    
-    // Request exact alarm permission for Android 15
-    await showExactAlarmPermissionDialog(context);
-    
-    // Check final status
-    final finalStatus = await Permission.notification.status;
-    
-    if (finalStatus.isPermanentlyDenied) {
-      await showPermissionDeniedDialog(context);
-      return false;
-    }
-    
-    return finalStatus.isGranted;
-    
-  } catch (e) {
-    debugPrint('Permission request error: $e');
-    return false;
   }
 }
 
