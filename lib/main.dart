@@ -8,20 +8,37 @@ import 'providers/reminder_provider.dart';
 import 'providers/notification_provider.dart';
 import 'models/reminder.dart';
 import 'services/notification_service.dart';
+import 'widgets/permission_dialog.dart';
 
 void main() async {
+  // CRITICAL: Ensure Flutter binding is initialized first
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize Hive
-  await Hive.initFlutter();
-  Hive.registerAdapter(ReminderAdapter());
-  Hive.registerAdapter(RepeatTypeAdapter());
-  await Hive.openBox<Reminder>('reminders');
-  
-  // Initialize notifications
-  await NotificationService.initialize();
-  
-  runApp(const ReminderApp());
+  try {
+    // Initialize Hive with error handling
+    await Hive.initFlutter();
+    Hive.registerAdapter(ReminderAdapter());
+    Hive.registerAdapter(RepeatTypeAdapter());
+    await Hive.openBox<Reminder>('reminders');
+    debugPrint('Hive initialized successfully');
+    
+    // Initialize notifications (Android 15 compatible)
+    await NotificationService.initialize();
+    debugPrint('NotificationService initialized successfully');
+    
+    // Set preferred orientations
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+    
+    runApp(const ReminderApp());
+    
+  } catch (e) {
+    debugPrint('App initialization error: $e');
+    // Run app even if some services fail to initialize
+    runApp(const ReminderApp());
+  }
 }
 
 class ReminderApp extends StatelessWidget {
@@ -43,6 +60,10 @@ class ReminderApp extends StatelessWidget {
             brightness: Brightness.light,
           ),
           useMaterial3: true,
+          // Android 15 edge-to-edge support
+          appBarTheme: const AppBarTheme(
+            systemOverlayStyle: SystemUiOverlayStyle.dark,
+          ),
         ),
         darkTheme: ThemeData(
           colorScheme: ColorScheme.fromSeed(
@@ -50,10 +71,25 @@ class ReminderApp extends StatelessWidget {
             brightness: Brightness.dark,
           ),
           useMaterial3: true,
+          // Android 15 edge-to-edge support
+          appBarTheme: const AppBarTheme(
+            systemOverlayStyle: SystemUiOverlayStyle.light,
+          ),
         ),
-        home: const HomeScreen(),
+        // Wrap the home screen with permission handling
+        home: const PermissionRequestWrapper(
+          child: HomeScreen(),
+        ),
         routes: {
           '/call': (context) => const ReminderCallScreen(),
+        },
+        // Handle navigation errors gracefully
+        onUnknownRoute: (settings) {
+          return MaterialPageRoute(
+            builder: (context) => const PermissionRequestWrapper(
+              child: HomeScreen(),
+            ),
+          );
         },
       ),
     );

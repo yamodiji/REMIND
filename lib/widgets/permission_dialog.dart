@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/notification_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
+import '../services/notification_service.dart';
 
 class PermissionDialog extends StatelessWidget {
   const PermissionDialog({super.key});
@@ -216,5 +218,254 @@ class PermissionDialog extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// Shows Android 15 compatible notification permission explanation dialog
+Future<bool> showNotificationPermissionDialog(BuildContext context) async {
+  final result = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        icon: const Icon(
+          Icons.notifications_active,
+          size: 48,
+          color: Colors.blue,
+        ),
+        title: const Text('Stay Updated with Reminders'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'This app needs notification permission to alert you about your important reminders.',
+              style: TextStyle(fontSize: 16),
+            ),
+            SizedBox(height: 16),
+            Text(
+              '• Get timely reminder alerts\n'
+              '• Never miss important tasks\n'
+              '• Control notification settings anytime',
+              style: TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Not Now'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Allow Notifications'),
+          ),
+        ],
+      );
+    },
+  );
+  
+  if (result == true) {
+    // Request the actual system permission
+    return await NotificationService.requestPermissions();
+  }
+  
+  return false;
+}
+
+/// Shows dialog when permission is permanently denied
+Future<void> showPermissionDeniedDialog(BuildContext context) async {
+  await showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        icon: const Icon(
+          Icons.settings,
+          size: 48,
+          color: Colors.orange,
+        ),
+        title: const Text('Permission Required'),
+        content: const Text(
+          'Notifications are disabled for this app. To enable reminders, please:\n\n'
+          '1. Tap "Open Settings"\n'
+          '2. Go to "Notifications"\n'
+          '3. Enable "Allow notifications"\n\n'
+          'This ensures you never miss important reminders.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              await openAppSettings();
+            },
+            child: const Text('Open Settings'),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+/// Shows exact alarm permission dialog (Android 15 requirement)
+Future<bool> showExactAlarmPermissionDialog(BuildContext context) async {
+  final result = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        icon: const Icon(
+          Icons.schedule,
+          size: 48,
+          color: Colors.green,
+        ),
+        title: const Text('Precise Timing Required'),
+        content: const Text(
+          'To deliver reminders at the exact time you set, this app needs permission to schedule exact alarms.\n\n'
+          'This ensures your reminders are delivered precisely when needed.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Skip'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Allow Exact Timing'),
+          ),
+        ],
+      );
+    },
+  );
+  
+  if (result == true) {
+    await NotificationService.requestExactAlarmPermission();
+    return true;
+  }
+  
+  return false;
+}
+
+/// Request all necessary permissions with proper Android 15 flow
+Future<bool> requestAllPermissions(BuildContext context) async {
+  try {
+    // Check if notification permission is already granted
+    final notificationStatus = await Permission.notification.status;
+    
+    if (notificationStatus.isGranted) {
+      return true;
+    }
+    
+    // Show explanation dialog first (Android 15 best practice)
+    final shouldRequestNotification = await showNotificationPermissionDialog(context);
+    
+    if (!shouldRequestNotification) {
+      return false;
+    }
+    
+    // Request exact alarm permission for Android 15
+    await showExactAlarmPermissionDialog(context);
+    
+    // Check final status
+    final finalStatus = await Permission.notification.status;
+    
+    if (finalStatus.isPermanentlyDenied) {
+      await showPermissionDeniedDialog(context);
+      return false;
+    }
+    
+    return finalStatus.isGranted;
+    
+  } catch (e) {
+    debugPrint('Permission request error: $e');
+    return false;
+  }
+}
+
+/// Check and show permission status to user
+Future<void> checkPermissionStatus(BuildContext context) async {
+  final notificationStatus = await Permission.notification.status;
+  final exactAlarmStatus = await Permission.scheduleExactAlarm.status;
+  
+  String message = '';
+  IconData icon = Icons.check_circle;
+  Color color = Colors.green;
+  
+  if (notificationStatus.isGranted && exactAlarmStatus.isGranted) {
+    message = 'All permissions granted! Reminders will work perfectly.';
+  } else if (notificationStatus.isGranted) {
+    message = 'Notifications enabled. For best experience, allow exact timing.';
+    icon = Icons.warning;
+    color = Colors.orange;
+  } else {
+    message = 'Notifications disabled. Enable them to receive reminders.';
+    icon = Icons.error;
+    color = Colors.red;
+  }
+  
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(icon, color: color),
+            const SizedBox(width: 8),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: color.withOpacity(0.1),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+}
+
+/// Widget that wraps permission requests in proper UI context
+class PermissionRequestWrapper extends StatefulWidget {
+  final Widget child;
+  final bool requestOnInit;
+  
+  const PermissionRequestWrapper({
+    super.key,
+    required this.child,
+    this.requestOnInit = true,
+  });
+
+  @override
+  State<PermissionRequestWrapper> createState() => _PermissionRequestWrapperState();
+}
+
+class _PermissionRequestWrapperState extends State<PermissionRequestWrapper> {
+  bool _permissionsRequested = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.requestOnInit) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _requestPermissionsIfNeeded();
+      });
+    }
+  }
+
+  Future<void> _requestPermissionsIfNeeded() async {
+    if (_permissionsRequested) return;
+    _permissionsRequested = true;
+    
+    // Wait a bit for the UI to settle
+    await Future.delayed(const Duration(milliseconds: 500));
+    
+    if (mounted) {
+      await PermissionDialog.requestAllPermissions(context);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return widget.child;
   }
 } 

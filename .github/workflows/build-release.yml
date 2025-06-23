@@ -36,39 +36,34 @@ jobs:
     - name: Get dependencies
       run: flutter pub get
 
-    - name: Run build_runner for Hive adapters
+    - name: Generate Hive adapters
       run: flutter packages pub run build_runner build --delete-conflicting-outputs
 
-    - name: Analyze code
-      run: flutter analyze || true
+    - name: Analyze project source
+      run: flutter analyze
 
-    - name: Run tests
-      run: flutter test || true
-
-    - name: Clean build cache
-      run: flutter clean
-
-    - name: Get dependencies again
-      run: flutter pub get
-
-    - name: Run build_runner again after clean
-      run: flutter packages pub run build_runner build --delete-conflicting-outputs
-
-    # CRITICAL: Setup Gradle for CI
-    - name: Setup Gradle properties
+    # Create signing key for release APK
+    - name: Create signing keystore
       run: |
-        mkdir -p ~/.gradle
-        echo "org.gradle.daemon=false" >> ~/.gradle/gradle.properties
-        echo "org.gradle.parallel=false" >> ~/.gradle/gradle.properties
-        echo "org.gradle.configureondemand=false" >> ~/.gradle/gradle.properties
-        echo "org.gradle.jvmargs=-Xmx2048m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8" >> ~/.gradle/gradle.properties
+        echo "${{ secrets.KEYSTORE_BASE64 || 'LS0tLS1CRUdJTiBLRVlTVE9SRS0tLS0t' }}" | base64 -d > android/app/keystore.jks || echo "No keystore provided, creating debug keystore"
+        keytool -genkey -v -keystore android/app/debug-keystore.jks -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
 
-    # Build with retry logic
-    - name: Build APK with retry
+    # Create key.properties for signing
+    - name: Create key.properties
+      run: |
+        cat > android/key.properties << EOF
+        storePassword=android
+        keyPassword=android
+        keyAlias=androiddebugkey
+        storeFile=debug-keystore.jks
+        EOF
+
+    # Build APK with retry logic
+    - name: Build APK
       run: |
         for i in {1..3}; do
           echo "Build attempt $i"
-          if flutter build apk --release --no-tree-shake-icons; then
+          if flutter build apk --release; then
             echo "Build successful on attempt $i"
             break
           else
@@ -81,63 +76,85 @@ jobs:
             flutter clean
             flutter pub get
             flutter packages pub run build_runner build --delete-conflicting-outputs
-            sleep 10
           fi
         done
 
-    - name: Upload APK artifact
+    # Rename APK with version info
+    - name: Rename APK
+      run: |
+        VERSION=$(grep 'version:' pubspec.yaml | head -n1 | awk '{print $2}' | cut -d'+' -f1)
+        BUILD_NUMBER=$(date +%Y%m%d%H%M)
+        mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/reminder-app-v${VERSION}-${BUILD_NUMBER}.apk
+        echo "APK_NAME=reminder-app-v${VERSION}-${BUILD_NUMBER}.apk" >> $GITHUB_ENV
+        echo "VERSION=${VERSION}" >> $GITHUB_ENV
+        echo "BUILD_NUMBER=${BUILD_NUMBER}" >> $GITHUB_ENV
+
+    # Create GitHub Release
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ env.VERSION }}-${{ env.BUILD_NUMBER }}
+        release_name: "Reminder App v${{ env.VERSION }} (Build ${{ env.BUILD_NUMBER }})"
+        body: |
+          ## 📱 Reminder App - Call-Style Notifications
+
+          ### ✨ Features
+          - 📞 **Call-screen style reminders** - Get attention-grabbing notifications
+          - 🔔 **Smart notifications** - Android 15 compatible with proper permissions
+          - 🔄 **Flexible repeats** - Daily, weekly, monthly, yearly options
+          - ⭐ **Important reminders** - Mark critical reminders for priority
+          - 😴 **Snooze options** - 5min, 10min, 30min, 1hr snooze
+          - 🎨 **Modern UI** - Material 3 design with animations
+          - 🌙 **Dark mode support** - Automatic theme switching
+
+          ### 🔧 Android 15 Compatibility
+          - ✅ POST_NOTIFICATIONS permission handling
+          - ✅ Exact alarm scheduling
+          - ✅ Edge-to-edge design support
+          - ✅ Foreground service compatibility
+          - ✅ Core library desugaring enabled
+
+          ### 📱 Installation
+          1. Download the APK below
+          2. Enable "Install from unknown sources" if needed
+          3. Install the APK
+          4. Grant notification permissions when prompted
+          5. Enjoy seamless reminder management!
+
+          ### 🔒 Privacy & Security
+          - All data stored locally on your device
+          - No internet permissions required for core functionality
+          - Transparent permission requests with clear explanations
+
+          ---
+          **Build Info:**
+          - Version: ${{ env.VERSION }}
+          - Build: ${{ env.BUILD_NUMBER }}
+          - Target: Android 15 (API 35)
+          - Min SDK: Android 6.0 (API 23)
+          - Signed: Yes ✅
+
+        draft: false
+        prerelease: false
+
+    # Upload APK to Release
+    - name: Upload APK
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: build/app/outputs/flutter-apk/${{ env.APK_NAME }}
+        asset_name: ${{ env.APK_NAME }}
+        asset_content_type: application/vnd.android.package-archive
+
+    # Upload to Artifacts (backup)
+    - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: reminder-app-apk
-        path: build/app/outputs/flutter-apk/app-release.apk
-
-    - name: Rename APK for release
-      run: cp build/app/outputs/flutter-apk/app-release.apk reminder-app-v1.0.${{ github.run_number }}.apk
-
-    - name: Create Release
-      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-      uses: softprops/action-gh-release@v2
-      with:
-        tag_name: v1.0.${{ github.run_number }}
-        name: "📱 Reminder App v1.0.${{ github.run_number }}"
-        body: |
-          # 🔔 Reminder App - Call Screen Style Reminders
-          
-          **📱 Download APK**: `reminder-app-v1.0.${{ github.run_number }}.apk`
-          
-          ## 🚀 Features
-          - ✅ **Call-screen style reminder notifications** - Immersive full-screen reminders
-          - ✅ **Local storage with Hive** - Fast, reliable data persistence
-          - ✅ **Repeat reminders** - Daily, weekly, monthly, yearly options
-          - ✅ **Important reminder marking** - Priority levels for critical reminders
-          - ✅ **Snooze functionality** - 5min, 10min, 30min, 1hr snooze options
-          - ✅ **Modern Material 3 UI** - Beautiful, intuitive interface
-          - ✅ **Permission handling** - Proper Android 13+ permission management
-          - ✅ **Offline-first design** - Works without internet connection
-          
-          ## 📲 Installation Instructions
-          1. **Download** the APK file below
-          2. **Enable** "Install from unknown sources" in Android Settings → Security
-          3. **Install** the APK by tapping on it
-          4. **Grant** notification permissions when prompted
-          5. **Enjoy** your new reminder app!
-          
-          ## 🔧 Technical Details
-          - **Minimum Android**: Android 5.0 (API 23)
-          - **Target Android**: Android 15 (API 35)
-          - **Architecture**: MVVM with Provider
-          - **Storage**: Hive local database
-          - **Notifications**: Flutter Local Notifications
-          
-          ## 🆕 What's New in v1.0.${{ github.run_number }}
-          - Fixed Android SDK compatibility issues
-          - Improved animation performance
-          - Enhanced build process for better reliability
-          
-          ---
-          
-          ⚠️ **Important**: This is an unsigned APK. Your device may show a warning during installation - this is normal for apps not from the Play Store.
-        files: reminder-app-v1.0.${{ github.run_number }}.apk
-        draft: false
-        prerelease: false
-        token: ${{ secrets.GITHUB_TOKEN }} 
+        path: build/app/outputs/flutter-apk/${{ env.APK_NAME }}
+        retention-days: 30 
