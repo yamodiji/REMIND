@@ -42,7 +42,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const PermissionDialog(),
+      builder: (context) => PermissionDialog(),
     );
   }
 
