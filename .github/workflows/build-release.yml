@@ -89,15 +89,12 @@ jobs:
         echo "VERSION=${VERSION}" >> $GITHUB_ENV
         echo "BUILD_NUMBER=${BUILD_NUMBER}" >> $GITHUB_ENV
 
-    # Create GitHub Release
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    # Create GitHub Release with modern action
+    - name: Create Release and Upload APK
+      uses: softprops/action-gh-release@v2
       with:
         tag_name: v${{ env.VERSION }}-${{ env.BUILD_NUMBER }}
-        release_name: "Reminder App v${{ env.VERSION }} (Build ${{ env.BUILD_NUMBER }})"
+        name: "Reminder App v${{ env.VERSION }} (Build ${{ env.BUILD_NUMBER }})"
         body: |
           ## 📱 Reminder App - Call-Style Notifications
 
@@ -137,19 +134,10 @@ jobs:
           - Min SDK: Android 6.0 (API 23)
           - Signed: Yes ✅
 
+        files: build/app/outputs/flutter-apk/${{ env.APK_NAME }}
         draft: false
         prerelease: false
-
-    # Upload APK to Release
-    - name: Upload APK
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: build/app/outputs/flutter-apk/${{ env.APK_NAME }}
-        asset_name: ${{ env.APK_NAME }}
-        asset_content_type: application/vnd.android.package-archive
+        token: ${{ secrets.GITHUB_TOKEN }}
 
     # Upload to Artifacts (backup)
     - name: Upload APK Artifact
