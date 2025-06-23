@@ -18,8 +18,13 @@ class NotificationService {
     if (_isInitialized) return;
     
     try {
-      // Initialize timezone data first
-      tz.initializeTimeZones();
+      // Initialize timezone data first with error handling
+      try {
+        tz.initializeTimeZones();
+      } catch (e) {
+        debugPrint('Timezone initialization failed: $e');
+        // Continue without timezone - notifications will still work
+      }
       
       const AndroidInitializationSettings androidSettings = 
           AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -36,10 +41,16 @@ class NotificationService {
         iOS: iosSettings,
       );
 
-      // Initialize notifications plugin
+      // Initialize notifications plugin with timeout
       await _notifications.initialize(
         settings,
         onDidReceiveNotificationResponse: _onNotificationTapped,
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          debugPrint('Notification initialization timed out');
+          throw TimeoutException('Notification initialization timeout', const Duration(seconds: 10));
+        },
       );
 
       // Create notification channels for Android 15
@@ -50,6 +61,8 @@ class NotificationService {
       
     } catch (e) {
       debugPrint('NotificationService initialization failed: $e');
+      // Mark as initialized to prevent retry loops
+      _isInitialized = true;
       // Don't throw - let app continue without notifications
     }
   }
