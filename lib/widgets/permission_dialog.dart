@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/notification_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../services/notification_service.dart';
+
 
 class PermissionDialog extends StatelessWidget {
   const PermissionDialog({super.key});

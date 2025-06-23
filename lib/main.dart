@@ -8,7 +8,7 @@ import 'providers/reminder_provider.dart';
 import 'providers/notification_provider.dart';
 import 'models/reminder.dart';
 import 'services/notification_service.dart';
-import 'widgets/permission_dialog.dart';
+
 
 void main() async {
   // CRITICAL: Ensure Flutter binding is initialized first
@@ -76,19 +76,15 @@ class ReminderApp extends StatelessWidget {
             systemOverlayStyle: SystemUiOverlayStyle.light,
           ),
         ),
-        // Wrap the home screen with permission handling
-        home: const PermissionRequestWrapper(
-          child: HomeScreen(),
-        ),
+        // Home screen
+        home: const HomeScreen(),
         routes: {
           '/call': (context) => const ReminderCallScreen(),
         },
         // Handle navigation errors gracefully
         onUnknownRoute: (settings) {
           return MaterialPageRoute(
-            builder: (context) => const PermissionRequestWrapper(
-              child: HomeScreen(),
-            ),
+            builder: (context) => const HomeScreen(),
           );
         },
       ),
